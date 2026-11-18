@@ -1,0 +1,30 @@
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+**/dist/
+build/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS and editor
+.DS_Store
+.vscode/
+.idea/
+
+# Generated files
+*.tsbuildinfo
+
+# Private assessment source data - never publish
+data/

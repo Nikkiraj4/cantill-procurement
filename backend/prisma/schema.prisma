@@ -1,0 +1,420 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PolicyStatus {
+  DRAFT
+  APPROVED
+  ACTIVE
+  RETIRED
+}
+
+enum ContractSource {
+  REGISTER
+  SIGNED_PDF
+}
+
+enum RequirementStatus {
+  PENDING
+  DECIDED
+  APPROVED
+  OVERRIDDEN
+  REJECTED
+  NOT_PROCESSED
+}
+
+enum DecisionType {
+  PO
+  SOURCING_REQUEST
+  NOT_PROCESSED
+}
+
+enum ProcurementRoute {
+  CONTRACT_PO
+  EMERGENCY_PO
+  SPOT_PO
+  RFQ
+  RFP
+  CAPEX_SOURCING
+  NEW_ITEM_SOURCING
+  NOT_PROCESSED
+}
+
+enum BuyerActionType {
+  APPROVE
+  OVERRIDE
+  REJECT
+}
+
+enum SourcingStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Plant {
+  code            String                @id
+  name            String
+  purchaseLines   PurchaseRequestLine[]
+  requirements    Requirement[]
+  purchaseOrders  PurchaseOrder[]
+  purchaseHistory PurchaseHistory[]
+}
+
+model Item {
+  code                       String                      @id
+  description                String
+  uom                        String
+  category                   String
+  itemType                   String
+  standardPrice              Decimal                     @db.Decimal(14, 2)
+  requestLines               PurchaseRequestLine[]
+  requirements               Requirement[]
+  contractLines              ContractLine[]
+  purchaseHistory            PurchaseHistory[]
+  preferredEntries           PreferredSupplierEntry[]
+  preferredSupplierSnapshots PreferredSupplierSnapshot[]
+}
+
+model Supplier {
+  id                   String                       @id
+  name                 String
+  city                 String?
+  status               String
+  onTimePct            Decimal?                     @db.Decimal(5, 2)
+  qualityRating        Decimal?                     @db.Decimal(4, 2)
+  categories           SupplierCategory[]
+  contracts            Contract[]
+  purchaseHistory      PurchaseHistory[]
+  purchaseOrders       PurchaseOrder[]
+  suggestions          DecisionSupplierSuggestion[]
+  preferredEntries     PreferredSupplierEntry[]
+  procurementDecisions ProcurementDecision[]
+}
+
+model SupplierCategory {
+  id         String   @id @default(cuid())
+  supplierId String
+  category   String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, category])
+  @@index([category])
+}
+
+model Contract {
+  id             String         @id
+  supplierId     String
+  supplierName   String
+  startDate      DateTime       @db.Date
+  endDate        DateTime       @db.Date
+  valueCap       Decimal        @db.Decimal(16, 2)
+  consumedValue  Decimal        @default(0) @db.Decimal(16, 2)
+  source         ContractSource
+  sourceFileName String?
+  signedDate     DateTime?      @db.Date
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+  lines          ContractLine[]
+
+  @@index([supplierId, startDate, endDate])
+}
+
+model ContractLine {
+  id          String   @id @default(cuid())
+  contractId  String
+  itemCode    String
+  description String
+  uom         String
+  rate        Decimal  @db.Decimal(14, 2)
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  item        Item     @relation(fields: [itemCode], references: [code])
+
+  @@unique([contractId, itemCode])
+  @@index([itemCode])
+}
+
+model PurchaseHistory {
+  id              String   @id @default(cuid())
+  poNumber        String
+  poDate          DateTime @db.Date
+  supplierId      String
+  itemCode        String
+  quantity        Decimal  @db.Decimal(16, 4)
+  uom             String
+  unitPrice       Decimal  @db.Decimal(14, 2)
+  plantCode       String
+  deliveredOnTime Boolean?
+  supplier        Supplier @relation(fields: [supplierId], references: [id])
+  item            Item     @relation(fields: [itemCode], references: [code])
+  plant           Plant    @relation(fields: [plantCode], references: [code])
+
+  @@index([itemCode, poDate])
+  @@index([supplierId, itemCode, poDate])
+}
+
+model PolicyVersion {
+  id             String                      @id @default(cuid())
+  version        String                      @unique
+  documentCode   String?
+  effectiveFrom  DateTime
+  effectiveTo    DateTime?
+  status         PolicyStatus                @default(DRAFT)
+  sourceFileName String?
+  sourceText     String?                     @db.Text
+  changeSummary  String?                     @db.Text
+  createdBy      String?
+  approvedBy     String?
+  approvedAt     DateTime?
+  activatedAt    DateTime?
+  createdAt      DateTime                    @default(now())
+  rules          PolicyRule[]
+  requirements   Requirement[]
+  decisions      ProcurementDecision[]
+  preferredLists PreferredSupplierSnapshot[]
+
+  @@index([status, effectiveFrom])
+}
+
+model PolicyRule {
+  id              String        @id @default(cuid())
+  policyVersionId String
+  ruleCode        String
+  section         String
+  priority        Int
+  name            String
+  description     String?       @db.Text
+  conditions      Json
+  outcome         Json
+  enabled         Boolean       @default(true)
+  policyVersion   PolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([policyVersionId, ruleCode])
+  @@index([policyVersionId, priority])
+}
+
+model PRBatch {
+  id           String                @id @default(cuid())
+  fileName     String
+  fileChecksum String?
+  status       String                @default("IMPORTED")
+  importedAt   DateTime              @default(now())
+  importedBy   String?
+  rowCount     Int                   @default(0)
+  requests     PurchaseRequest[]
+  lines        PurchaseRequestLine[]
+}
+
+model PurchaseRequest {
+  id         String                @id @default(cuid())
+  batchId    String?
+  prNumber   String
+  createdAt  DateTime
+  requester  String
+  department String?
+  batch      PRBatch?              @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  lines      PurchaseRequestLine[]
+
+  @@unique([batchId, prNumber])
+  @@index([prNumber])
+}
+
+model PurchaseRequestLine {
+  id                 String           @id @default(cuid())
+  batchId            String?
+  requestId          String?
+  prNumber           String
+  lineNumber         String
+  plantCode          String?
+  itemCode           String?
+  description        String
+  quantity           Decimal          @db.Decimal(16, 4)
+  uom                String
+  estimatedUnitPrice Decimal?         @db.Decimal(14, 2)
+  needByDate         DateTime         @db.Date
+  urgency            String
+  rawData            Json?
+  batch              PRBatch?         @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  request            PurchaseRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  plant              Plant?           @relation(fields: [plantCode], references: [code])
+  item               Item?            @relation(fields: [itemCode], references: [code])
+  requirement        Requirement?     @relation(fields: [requirementId], references: [id])
+  requirementId      String?
+
+  @@unique([batchId, prNumber, lineNumber])
+  @@index([plantCode, itemCode])
+  @@index([prNumber, lineNumber])
+}
+
+model Requirement {
+  id                 String                @id @default(cuid())
+  groupCode          String                @unique
+  itemCode           String?
+  plantCode          String
+  firstCreatedAt     DateTime
+  firstNeedByDate    DateTime              @db.Date
+  totalQuantity      Decimal               @db.Decimal(16, 4)
+  valuationUnitPrice Decimal?              @db.Decimal(14, 2)
+  totalValue         Decimal?              @db.Decimal(16, 2)
+  isEmergency        Boolean               @default(false)
+  status             RequirementStatus     @default(PENDING)
+  policyVersionId    String?
+  createdAt          DateTime              @default(now())
+  item               Item?                 @relation(fields: [itemCode], references: [code])
+  plant              Plant                 @relation(fields: [plantCode], references: [code])
+  policyVersion      PolicyVersion?        @relation(fields: [policyVersionId], references: [id])
+  requestLines       PurchaseRequestLine[]
+  decision           ProcurementDecision?
+  purchaseOrderLine  PurchaseOrderLine?
+  sourcingRequest    SourcingRequest?
+
+  @@index([itemCode, plantCode, firstCreatedAt])
+}
+
+model ProcurementDecision {
+  id              String                       @id @default(cuid())
+  requirementId   String                       @unique
+  policyVersionId String
+  decisionType    DecisionType
+  route           ProcurementRoute
+  supplierId      String?
+  unitPrice       Decimal?                     @db.Decimal(14, 2)
+  groupValue      Decimal?                     @db.Decimal(16, 2)
+  appliedClause   String
+  reason          String                       @db.Text
+  evidence        Json
+  decidedAt       DateTime                     @default(now())
+  requirement     Requirement                  @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  policyVersion   PolicyVersion                @relation(fields: [policyVersionId], references: [id])
+  supplier        Supplier?                    @relation(fields: [supplierId], references: [id])
+  suggestions     DecisionSupplierSuggestion[]
+  overrides       BuyerAction[]
+}
+
+model DecisionSupplierSuggestion {
+  id         String              @id @default(cuid())
+  decisionId String
+  supplierId String
+  rank       Int
+  reason     String?             @db.Text
+  decision   ProcurementDecision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  supplier   Supplier            @relation(fields: [supplierId], references: [id])
+
+  @@unique([decisionId, supplierId])
+  @@unique([decisionId, rank])
+}
+
+model PurchaseOrder {
+  id         String              @id @default(cuid())
+  poNumber   String              @unique
+  supplierId String
+  plantCode  String
+  route      ProcurementRoute
+  createdAt  DateTime            @default(now())
+  supplier   Supplier            @relation(fields: [supplierId], references: [id])
+  plant      Plant               @relation(fields: [plantCode], references: [code])
+  lines      PurchaseOrderLine[]
+
+  @@index([supplierId, plantCode, route, createdAt])
+}
+
+model PurchaseOrderLine {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  requirementId   String        @unique
+  itemCode        String?
+  quantity        Decimal       @db.Decimal(16, 4)
+  unitPrice       Decimal       @db.Decimal(14, 2)
+  lineValue       Decimal       @db.Decimal(16, 2)
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  requirement     Requirement   @relation(fields: [requirementId], references: [id])
+
+  @@index([purchaseOrderId])
+}
+
+model SourcingRequest {
+  id            String         @id @default(cuid())
+  requirementId String         @unique
+  status        SourcingStatus @default(OPEN)
+  createdAt     DateTime       @default(now())
+  requirement   Requirement    @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+}
+
+model PreferredSupplierSnapshot {
+  id              String                   @id @default(cuid())
+  itemCode        String
+  asOfDate        DateTime                 @db.Date
+  policyVersionId String?
+  generatedAt     DateTime                 @default(now())
+  item            Item                     @relation(fields: [itemCode], references: [code])
+  policyVersion   PolicyVersion?           @relation(fields: [policyVersionId], references: [id])
+  entries         PreferredSupplierEntry[]
+
+  @@unique([itemCode, asOfDate, policyVersionId])
+}
+
+model PreferredSupplierEntry {
+  id             String                    @id @default(cuid())
+  snapshotId     String
+  supplierId     String
+  rank           Int
+  score          Decimal                   @db.Decimal(8, 4)
+  referencePrice Decimal?                  @db.Decimal(14, 2)
+  explanation    Json
+  snapshot       PreferredSupplierSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  supplier       Supplier                  @relation(fields: [supplierId], references: [id])
+  item           Item                      @relation(fields: [itemCode], references: [code])
+  itemCode       String
+
+  @@unique([snapshotId, supplierId])
+  @@unique([snapshotId, rank])
+}
+
+model BuyerAction {
+  id          String              @id @default(cuid())
+  decisionId  String
+  action      BuyerActionType
+  comment     String?             @db.Text
+  performedBy String
+  performedAt DateTime            @default(now())
+  decision    ProcurementDecision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+}
+
+model ChatConversation {
+  id        String        @id @default(cuid())
+  requester String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  role           String
+  content        String           @db.Text
+  extractedData  Json?
+  createdAt      DateTime         @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  action     String
+  actor      String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+}
