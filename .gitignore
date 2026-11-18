@@ -28,3 +28,26 @@ npm-debug.log*
 
 # Private assessment source data - never publish
 data/
+# Additional environment and secret files
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Debug and test artifacts
+*.tgz
+.npm/
+*.pid
+*.seed
+
+# Local databases and backups
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.bak
+
+# Temporary files
+*.tmp
+*.swp
+*.swo

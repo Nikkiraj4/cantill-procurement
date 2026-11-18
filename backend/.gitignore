@@ -3,3 +3,9 @@ node_modules
 .env
 
 /generated/prisma
+
+# Runtime uploads (including test policy documents)
+uploads/
+
+# Temporary working backups
+*.before-*
