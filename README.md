@@ -1,55 +1,134 @@
 # Cantill Procurement
 
-A procurement workflow application for importing purchase requests, consolidating requirements, evaluating policy-driven procurement routes, generating purchase orders and reviewing policy versions.
+**A policy-driven procurement workflow and decision management application.**
 
-## 1. Technology
+Cantill Procurement transforms purchase request (PR) data into consolidated procurement requirements, evaluates them against versioned procurement policies, recommends suppliers, and supports buyer-reviewed purchase-order generation.
 
-- Frontend: React 19, Vite, React Router, Recharts and Lucide React.
-- Backend: Node.js, Express and Prisma.
-- Database: PostgreSQL.
-- CSV processing: csv-parse and PapaParse.
-- PDF text extraction: PDF.js (`pdfjs-dist`).
+## Live Application
 
-## 2. Project structure
+| Component | URL |
+|---|---|
+| **Frontend** | [Cantill Procurement](https://cantill-procurement-omega.vercel.app/) |
+| **Backend API** | [Railway API](https://cantill-procurement-production-32e9e137.up.railway.app/) |
+| **API Health Check** | [Check API and Database](https://cantill-procurement-production-32e9e137.up.railway.app/api/health) |
+
+The frontend is deployed on Vercel, the Express backend runs on Railway, and PostgreSQL is hosted on Railway.
+
+The production health endpoint verifies API availability and database connectivity.
+
+## 1. Technology Stack
+
+### Frontend
+- React 19
+- Vite
+- React Router
+- Recharts
+- Lucide React
+- PapaParse
+- CSS
+
+### Backend
+- Node.js
+- Express
+- Prisma ORM
+- Zod
+- Multer
+- csv-parse
+- PDF.js (`pdfjs-dist`)
+
+### Database and Deployment
+- PostgreSQL
+- Railway — backend and database hosting
+- Vercel — frontend hosting
+- GitHub — source control
+
+## 2. Key Features
+
+### Procurement Dashboard
+- Procurement summary metrics.
+- Decision distribution and procurement value.
+- Recent requirements and imported batches.
+- Purchase-order and sourcing-request visibility.
+
+### Purchase Request Processing
+- CSV-based PR batch intake.
+- Item matching against the item master.
+- Requirement consolidation based on policy criteria.
+- Requirement valuation using contract and purchase-history evidence.
+- Batch-level processing and traceability.
+
+### Procurement Decision Engine
+- Policy-driven procurement route selection.
+- Direct purchase-order and sourcing decisions.
+- Emergency, spot purchase, RFQ and RFP evaluation.
+- Supplier eligibility checks and recommendations.
+- Explainable decisions with policy and pricing evidence.
+
+### Policy Management
+- PDF policy-amendment upload.
+- PDF text extraction.
+- Draft policy-version creation.
+- Supported threshold and supplier-count updates.
+- Policy review and approval.
+- Activation of approved policy versions.
+
+### Buyer Workspace
+- Review procurement decisions and supplier recommendations.
+- Approve or reject requirements.
+- Record commented decision overrides.
+- Maintain buyer-action audit events.
+- Generate purchase orders only for eligible buyer-approved or overridden direct-PO decisions.
+
+## 3. Project Structure
 
 ```text
 cantill-procurement/
 ├── backend/
 │   ├── prisma/
+│   │   ├── migrations/
+│   │   └── schema.prisma
 │   ├── src/
 │   │   ├── routes/
-│   │   │   ├── batch.routes.js
-│   │   │   ├── dashboard.routes.js
-│   │   │   └── policy.routes.js
 │   │   ├── scripts/
 │   │   └── server.js
-│   └── package.json
+│   ├── package.json
+│   └── prisma.config.ts
 ├── frontend/
+│   ├── public/
 │   ├── src/
+│   ├── index.html
 │   └── package.json
-├── data/
-│   └── source/
-├── docs/
 ├── submission/
+├── docs/
 ├── DECISIONS.md
 ├── APPROACH.md
 └── README.md
 ```
 
-## 3. Prerequisites
+## 4. Prerequisites
 
-Install:
+For local development, install:
 
-- Node.js 22 or a compatible newer LTS release.
+- Node.js 22 or a compatible newer version.
 - npm.
 - Docker Desktop.
 - Git.
 
-The application uses PostgreSQL. The setup below runs PostgreSQL in a Docker container; it does not require Docker Compose.
+The backend requires PostgreSQL.
 
-## 4. Start PostgreSQL
+## 5. Local Setup
 
-Start Docker Desktop, then run:
+### Step 1: Clone the repository
+
+```bash
+git clone https://github.com/Nikkiraj4/cantill-procurement.git
+
+cd cantill-procurement
+```
+
+### Step 2: Start PostgreSQL
+
+Start Docker Desktop and run:
 
 ```bash
 docker run --name cantill-postgres \
@@ -61,49 +140,46 @@ docker run --name cantill-postgres \
   -d postgres:16
 ```
 
-If the container already exists, start it instead:
+If the container already exists:
 
 ```bash
 docker start cantill-postgres
 ```
 
-Check that PostgreSQL is ready:
+Check database readiness:
 
 ```bash
 docker exec cantill-postgres pg_isready \
   -U cantill -d cantill_procurement
 ```
 
-## 5. Configure the backend
+### Step 3: Configure and start the backend
 
 Open a terminal:
 
 ```bash
 cd backend
+
 npm install
 ```
 
-Set the database connection string in the same terminal:
+Configure the local database connection:
 
 ```bash
 export DATABASE_URL="postgresql://cantill:cantill_local_dev@localhost:5432/cantill_procurement?schema=public"
 ```
 
-Generate the Prisma client and synchronize the schema:
+Generate the Prisma client:
 
 ```bash
 npx prisma generate
-npx prisma db push
 ```
 
-For a new local database, import the supplied master data:
+Apply the existing database migrations:
 
 ```bash
-node src/scripts/import-master-data.js
-node src/scripts/import-signed-contracts.js
+npx prisma migrate deploy
 ```
-
-The source data must be present in the expected `data/source/` directory at the project root. The scripts use the supplied assessment data paths.
 
 Start the backend:
 
@@ -111,20 +187,27 @@ Start the backend:
 npm run dev
 ```
 
-The API runs at:
+The backend runs at:
 
-- `http://localhost:5000`
-- Health check: `http://localhost:5000/api/health`
+`http://localhost:5000`
 
-Keep this terminal running.
+Health check:
 
-## 6. Start the frontend
+`http://localhost:5000/api/health`
+
+### Step 4: Configure and start the frontend
 
 Open a second terminal:
 
 ```bash
-cd ~/Desktop/cantill-procurement/frontend
+cd frontend
+
 npm install
+```
+
+Start the development server:
+
+```bash
 npm run dev
 ```
 
@@ -132,38 +215,54 @@ Open the Vite URL printed in the terminal, normally:
 
 `http://localhost:5173`
 
-The frontend uses `VITE_API_URL` when supplied. Otherwise, it defaults to `http://localhost:5000`.
+By default, the frontend uses `http://localhost:5000` as its API URL.
 
-For a separately hosted frontend, set `VITE_API_URL` to the deployed backend base URL before building.
+To connect the frontend to another backend, configure `VITE_API_URL` before starting or building the application.
 
-## 7. Application sections
+## 6. Environment Variables
 
-### Overview
-Displays procurement summary metrics, decision distribution, procurement value, recent requirements and imported batches.
+Never commit environment files, database credentials, or production secrets to GitHub.
 
-### Requirements
-Displays consolidated procurement requirements and their decision information.
+### Backend
 
-### Purchase Orders
-Displays generated purchase orders and their values.
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `PORT` | Backend server port; defaults to `5000` |
 
-### Sourcing Requests
-Displays sourcing work and supplier recommendations where available.
+### Frontend
 
-### Policy Management
-Supports uploading a readable policy-amendment PDF, creating a draft policy version, reviewing supported changes and approving the draft.
+| Variable | Purpose |
+|---|---|
+| `VITE_API_URL` | Base URL of the backend API |
 
-### Buyer Workspace
-Supports reviewing procurement decisions, viewing supplier recommendations and decision evidence, approving or rejecting requirements, and recording commented overrides. Purchase-order generation is restricted to buyer-approved or overridden direct-PO decisions.
+For the deployed frontend, `VITE_API_URL` points to:
 
-## 8. API overview
+```text
+https://cantill-procurement-production-32e9e137.up.railway.app
+```
 
-The Express API exposes these route groups:
+The frontend environment variable must be available during the Vite build.
+
+## 7. Application Sections
+
+| Section | Functionality |
+|---|---|
+| Overview | Procurement metrics, decision distribution and recent activity |
+| Requirements | Consolidated requirements and procurement decisions |
+| Purchase Orders | Generated purchase orders and associated values |
+| Sourcing Requests | Sourcing work and supplier recommendations |
+| Policy Management | Policy uploads, drafts, amendments and approvals |
+| Buyer Workspace | Buyer review, approval, rejection and overrides |
+
+## 8. API Overview
+
+The Express backend exposes the following API endpoints:
 
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/` | API identity and status |
-| GET | `/api/health` | Database connectivity check |
+| GET | `/api/health` | API and database connectivity |
 | POST | `/api/batches/upload` | Upload a PR batch |
 | GET | `/api/dashboard/summary` | Dashboard summary |
 | GET | `/api/dashboard/requirements` | Requirement records |
@@ -174,64 +273,121 @@ The Express API exposes these route groups:
 | POST | `/api/policies/upload` | Upload a policy PDF and create a draft |
 | POST | `/api/policies/:id/approve` | Approve a draft policy version |
 | POST | `/api/buyer/requirements/:requirementId/action` | Approve, reject or override a requirement |
-| POST | `/api/buyer/batches/:batchId/generate-purchase-orders` | Generate purchase orders for eligible buyer-approved decisions |
+| POST | `/api/buyer/batches/:batchId/generate-purchase-orders` | Generate eligible purchase orders |
 
-The policy upload endpoint expects a multipart PDF field named `policyPdf` and structured amendment fields. The PDF must contain extractable text; scanned PDFs without readable text are rejected.
+Policy uploads use multipart form data with a PDF field named `policyPdf` and structured amendment fields.
 
-## 9. Procurement processing scripts
+The PDF must contain extractable text. Scanned PDFs without readable text are rejected.
 
-The backend scripts separate the main processing stages:
+## 9. Procurement Processing Scripts
+
+The backend separates procurement processing into dedicated scripts:
 
 | Script | Purpose |
 |---|---|
-| `import-master-data.js` | Import plants, items, suppliers, history and contract register data |
+| `import-master-data.js` | Import plants, items, suppliers, purchase history and contract register data |
 | `import-signed-contracts.js` | Import signed contract information |
-| `import-pr-batch.js` | Import the sample PR batch |
-| `match-requirements.js` | Resolve items and identify requirement groups |
+| `import-pr-batch.js` | Import a PR batch |
+| `match-requirements.js` | Match items and identify requirement groups |
 | `create-requirements.js` | Create consolidated requirements |
-| `value-requirements.js` | Calculate requirement values and price evidence |
+| `value-requirements.js` | Calculate requirement values and pricing evidence |
 | `process-procurement-decisions.js` | Evaluate active policy rules and supplier recommendations |
-| `create-purchase-orders.js` | Create POs for eligible direct-PO decisions |
-| `export-baseline.js` | Export batch-level procurement decisions and policy-linked preferred suppliers |
+| `create-purchase-orders.js` | Create purchase orders for eligible direct-PO decisions |
+| `export-baseline.js` | Export batch-level procurement decisions |
 | `export-preferred-suppliers.js` | Export preferred suppliers as of a specified date |
 
-Run scripts from the `backend/` directory. Use the script's dry-run option before applying changes wherever supported. Follow the batch ID and arguments printed by the relevant script; do not reuse a batch ID from another environment.
+Run scripts from the `backend/` directory.
 
-## 10. Submission exports
+Use dry-run options wherever supported and verify the target batch before applying database changes.
 
-The assessment exports are stored in `submission/`.
+**Important:** These scripts modify database records. In particular, `import-master-data.js` replaces existing purchase-history data during its import process. Do not run import or processing scripts against an existing production database unless an intentional data refresh is required and a backup has been taken.
 
-Expected deliverables:
+## 10. Submission Exports
+
+The assessment exports are maintained in `submission/`.
+
+Expected deliverables include:
 
 - `decisions_v5.0.csv`
 - `decisions_v5.1.csv`
 - `preferred_suppliers_as_of_2026-11-18.csv`
 
-The decision exports contain one row per source PR line. The preferred-supplier export contains up to three ranked suppliers per item and placeholder rows for items without eligible suppliers.
+The decision exports contain one row per source PR line.
 
-The preferred supplier ranking uses a 548-day lookback and the weighted factors documented in `DECISIONS.md`.
+The preferred-supplier export contains up to three ranked suppliers per item, with placeholder rows for items without eligible suppliers.
 
-## 11. Policy demonstration
+## 11. Policy Demonstration
 
-The supplied assessment kit includes the v5.0 procurement policy. It did not include an actual v5.1 amendment PDF.
+The supplied assessment kit included the v5.0 procurement policy but did not include an actual v5.1 amendment PDF.
 
-For the local demonstration, a clearly labelled test amendment was created and uploaded through Policy Management. It demonstrates draft creation, PDF text extraction, supported threshold updates, approval and policy-version activation.
+A clearly labelled test amendment was created for the local demonstration.
+
+The demonstration covers:
+
+1. PDF upload and text extraction.
+2. Draft policy-version creation.
+3. Supported threshold and supplier-count updates.
+4. Policy review and approval.
+5. Activation of the approved policy version.
 
 The test amendment and its demo approver label are not actual Corvo Engineering policy authorization.
 
-See `DECISIONS.md` for the exact demonstration changes and supported policy behavior.
+Refer to `DECISIONS.md` for the exact demonstration changes and supported policy behavior.
 
-## 12. Important implementation notes
+## 12. Deployment Architecture
 
-- The application uses CSV-based PR batch intake.
-- The policy workflow supports a defined set of configurable thresholds and supplier counts; it does not automatically convert arbitrary policy prose into new executable rule types.
+The application is deployed as separate frontend and backend services.
+
+```text
+                 User / Browser
+                       |
+                       v
+             Vercel Frontend
+             React + Vite
+                       |
+                       | VITE_API_URL
+                       v
+              Railway Backend
+              Node.js + Express
+                       |
+                       v
+               Prisma ORM
+                       |
+                       v
+              Railway PostgreSQL
+```
+
+### Production URLs
+
+- Frontend: https://cantill-procurement-omega.vercel.app/
+- Backend: https://cantill-procurement-production-32e9e137.up.railway.app/
+- Health check: https://cantill-procurement-production-32e9e137.up.railway.app/api/health
+
+### Deployment workflow
+
+1. Source code is maintained in the GitHub repository.
+2. The frontend is deployed through Vercel using the `frontend` directory.
+3. The backend is deployed through Railway using the `backend` directory.
+4. Railway PostgreSQL stores application data.
+5. The frontend communicates with the backend through `VITE_API_URL`.
+
+Pushing changes to the connected GitHub `main` branch triggers the configured deployment workflows.
+
+## 13. Important Implementation Notes and Limitations
+
+- The application uses CSV-based purchase-request intake.
+- Policy management supports a defined set of configurable thresholds and supplier counts; arbitrary policy prose is not automatically converted into new executable rule types.
 - Natural-language employee chat intake is not implemented as a complete workflow in this version.
-- Buyer names are manually entered for audit records; the application does not authenticate buyer identity.
-- The API does not currently expose a `/api/process-batch` endpoint; batch upload and subsequent processing are separate stages.
-- Buyer approval and override actions are recorded with timestamps and audit events. Overrides require a comment. PO generation checks buyer approval status and prevents duplicate batch PO creation.
-- The local setup uses a manually started PostgreSQL container. A Docker Compose configuration is not included.
+- Buyer names are manually entered for audit records; buyer identity is not independently authenticated.
+- Batch upload and subsequent processing are separate stages.
+- Buyer approval and override actions are recorded with timestamps and audit events.
+- Overrides require a comment.
+- Purchase-order generation checks buyer approval status and prevents duplicate batch PO creation.
+- Local development uses a manually started PostgreSQL container; Docker Compose is not included.
 
-## 13. Design and implementation notes
+## 14. Design and Development Documentation
 
-- Procurement rules, assumptions, ranking weights and trade-offs: `DECISIONS.md`.
-- Development process and AI assistance: `APPROACH.md`.
+For additional implementation details, refer to:
+
+- **[APPROACH.md](APPROACH.md)** — implementation approach, technology choices, validation and AI assistance.
+- **[DECISIONS.md](DECISIONS.md)** — procurement rules, assumptions, ranking weights, policy behavior and design trade-offs.
