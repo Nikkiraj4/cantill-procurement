@@ -239,4 +239,15 @@ A decision should be explainable through its policy version, clause, selected su
 - Supplier-ranking weights are implementation choices documented above, not weights prescribed by the source policy.
 - The policy amendment demo uses a test-only PDF and a demo approver label.
 - Natural-language employee chat intake and full arbitrary-policy-to-rule interpretation are not represented as completed features in this implementation.
-- The current API exposes batch upload, dashboard and policy-management routes; it does not expose a `/api/process-batch` endpoint.
+- The API exposes batch upload, batch processing, dashboard and policy-management routes.
+
+
+## 13. Blind-test execution note — 19 November 2026
+
+The preferred-supplier export was generated for the requested as-of date of 1 December 2026 and saved as `submission/nikitakumari__preferred.csv`.
+
+The two blind-test decision exports were not generated. The existing database had historical requirements, decisions and preferred-supplier snapshots under both stored policy versions. The decision processor selects the active policy and includes a safeguard that prevents applying a batch when preferred-supplier snapshots already exist for that policy.
+
+The active policy at inspection time was a development test amendment, not the requested v5.0 baseline. The supplied blind-test amendment also includes a Packaging-specific spot limit and a Chakan electrical-safety override, which are not supported by the existing amendment configuration workflow.
+
+No application source code was changed after the stated code-freeze time. Existing sample-batch exports were not relabelled as blind-test results.
